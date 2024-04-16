@@ -95,4 +95,5 @@ try
 catch
 {
     $_ | Out-Sentry
+    throw $_ 
 }

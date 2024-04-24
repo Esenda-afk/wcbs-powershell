@@ -9,7 +9,7 @@ param(
     [string]$PASS_VMName
 )
 
-$location = get-location
+# $location = get-location
 
 $ScriptPath = "C:\HubPay\s3-scripts\HUBpayFileUpload.ps1"
 $Value1 = "$albacs"
@@ -23,4 +23,4 @@ $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $Arguments
 $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1)
 
 # Create a PSCredential object
-Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -User $sauser -Password $sapass -RunLevel Highest
+Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -User $sauser -Password $sapass -RunLevel Highest -ErrorAction Stop

@@ -1,5 +1,35 @@
 Add-Type -AssemblyName System.Windows.Forms
+
+try {
+    Stop-Transcript
+} catch {
+    # Ignoring errors if no transcript is running
+}
+
 start-Transcript -path C:\HubPay\guilog.txt
+
+# Initialise sentry
+function Ensure-ModuleInstalled {
+    Param (
+        [string]$ModuleName
+    )
+
+    Write-Host "Checking if $ModuleName is installed..."
+    if (-not (Get-Module -ListAvailable -Name $ModuleName)) {
+        Write-Host "$ModuleName is not installed. Attempting to install..."
+        Install-Module -Name $ModuleName -Scope CurrentUser -Repository PSGallery -Force
+        Write-Host "$ModuleName installed successfully."
+    } else {
+        Write-Host "$ModuleName is already installed."
+    }
+    Import-Module $ModuleName
+}
+
+Ensure-ModuleInstalled -ModuleName "Sentry"
+Import-Module Sentry
+Start-Sentry 'https://38b83915f24124ddae8196758e939802@o1174556.ingest.us.sentry.io/4507095445798912'
+
+
 # Create form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Upload to S3 GUI"
@@ -41,20 +71,24 @@ $button.Location = New-Object System.Drawing.Point $buttonLocationX, $buttonLoca
 $button.Size = New-Object System.Drawing.Size(100, 30)
 $button.Text = "Execute Script"
 $button.Add_Click({
-    $albacs = $textboxes["Albacs"].Text
-    $s3bucket = $textboxes["S3 Bucket"].Text
-    $awss3user = $textboxes["AWS S3 User"].Text
-    $loglocation = $textboxes["Log Location"].Text
-    $sauser = $textboxes["SA User"].Text
-    $sapass = $textboxes["SA Password"].Text
-    $TaskName = $textboxes["Task Name"].Text
-    $PASS_VMName = $textboxes["PASS VM Name"].Text
+    try {
+        # Retrieve values from textboxes and execute the script
+        $albacs, $s3bucket, $awss3user, $loglocation, $sauser, $sapass, $TaskName, $PASS_VMName = $labels.ForEach({ $textboxes[$_].Text })
 
-    # Call the script with the provided parameters
-    & "C:\HubPay\s3-scripts\HUBpay-createschedtask.ps1" -albacs $albacs -s3bucket $s3bucket -awss3user $awss3user -loglocation $loglocation -sauser $sauser -sapass $sapass -TaskName $TaskName -PASS_VMName $PASS_VMName
+        # Assuming 'C:\HubPay\s3-scripts\HUBpay-createschedtask.ps1' is the correct path to the script
+        & "C:\HubPay\s3-scripts\HUBpay-createschedtask.ps1" -albacs $albacs -s3bucket $s3bucket -awss3user $awss3user -loglocation $loglocation -sauser $sauser -sapass $sapass -TaskName $TaskName -PASS_VMName $PASS_VMName
+    } catch {
+        # Capture the error message
+        $errorMessage = "An error occurred: " + $_.Exception.Message
 
-    # Run the create-task.ps1 script
-    Start-Process powershell.exe -ArgumentList "-File '$location\HUBpay-createschedtask.ps1' -albacs '$albacs' -s3bucket '$s3bucket' -awss3user '$awss3user' -loglocation '$loglocation' -sauser '$sauser' -sapass '$sapass' -TaskName '$TaskName' -PASS_VMName '$PASS_VMName'"
+        # Send the error to Sentry
+        $_ | Out-Sentry
+
+        Write-Error $errorMessage
+
+        # Display the error message in a dialog box
+        [System.Windows.Forms.MessageBox]::Show($errorMessage)
+    }
 })
 
 $form.Controls.Add($button)

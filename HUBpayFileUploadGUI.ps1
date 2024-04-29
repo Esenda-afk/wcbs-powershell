@@ -75,8 +75,8 @@ $button.Add_Click({
         # Retrieve values from textboxes and execute the script
         $albacs, $s3bucket, $awss3user, $loglocation, $sauser, $sapass, $TaskName, $PASS_VMName = $labels.ForEach({ $textboxes[$_].Text })
 
-        # Assuming 'C:\HubPay\s3-scripts\HUBpay-createschedtask.ps1' is the correct path to the script
-        & "C:\HubPay\s3-scripts\HUBpay-createschedtask.ps1" -albacs $albacs -s3bucket $s3bucket -awss3user $awss3user -loglocation $loglocation -sauser $sauser -sapass $sapass -TaskName $TaskName -PASS_VMName $PASS_VMName
+        # Docs on this $PSScriptRoot var: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_automatic_variables?view=powershell-7.4#psscriptroot
+        & "$PSScriptRoot\HUBpay-createschedtask.ps1" -albacs $albacs -s3bucket $s3bucket -awss3user $awss3user -loglocation $loglocation -sauser $sauser -sapass $sapass -TaskName $TaskName -PASS_VMName $PASS_VMName
     } catch {
         # Capture the error message
         $errorMessage = "An error occurred: " + $_.Exception.Message

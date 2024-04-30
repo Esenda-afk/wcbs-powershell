@@ -8,7 +8,21 @@ try {
 
 start-Transcript -path C:\HubPay\guilog.txt
 
-# Initialise sentry
+<#
+.SYNOPSIS
+    Checks if a PowerShell module is installed, and installs it if not present.
+
+.DESCRIPTION
+    Installs the inputted PS module if it's not already present. Also imports the module.
+    Returns a boolean to indicate whether the module was successfully loaded or not.
+
+.PARAMETER ModuleName
+    The name of the PowerShell module to check and install.
+
+.EXAMPLE
+    Ensure-ModuleInstalled -ModuleName "Sentry"
+    Checks if the Sentry module is installed, installs it if it is not, and then loads the module.
+#>
 function Ensure-ModuleInstalled {
     Param (
         [string]$ModuleName
@@ -16,18 +30,36 @@ function Ensure-ModuleInstalled {
 
     Write-Host "Checking if $ModuleName is installed..."
     if (-not (Get-Module -ListAvailable -Name $ModuleName)) {
-        Write-Host "$ModuleName is not installed. Attempting to install..."
-        Install-Module -Name $ModuleName -Scope CurrentUser -Repository PSGallery -Force
-        Write-Host "$ModuleName installed successfully."
+        try {
+            Write-Host "$ModuleName is not installed. Attempting to install..."
+            Install-Module -Name $ModuleName -Scope CurrentUser -Repository PSGallery -Force -ErrorAction Stop
+            Write-Host "$ModuleName installed successfully."
+        } catch {
+            Write-Host "Failed to install $ModuleName. Error: $_"
+            return $false
+        }
     } else {
         Write-Host "$ModuleName is already installed."
     }
-    Import-Module $ModuleName
+    
+    try {
+        Import-Module $ModuleName -ErrorAction Stop
+        return $true
+    } catch {
+        Write-Host "Failed to load $ModuleName. Error: $_"
+        return $false
+    }
 }
 
-Ensure-ModuleInstalled -ModuleName "Sentry"
-Import-Module Sentry
-Start-Sentry 'https://38b83915f24124ddae8196758e939802@o1174556.ingest.us.sentry.io/4507095445798912'
+
+# Initialise Sentry if the module can be installed
+$sentryAvailable = Ensure-ModuleInstalled -ModuleName "Sentry"
+if ($sentryAvailable) {
+    Import-Module Sentry
+    Start-Sentry 'https://38b83915f24124ddae8196758e939802@o1174556.ingest.us.sentry.io/4507095445798912'
+} else {
+    Write-Host "Skipping Sentry initialization because the Sentry module could not be installed."
+}
 
 
 # Create form
@@ -81,8 +113,12 @@ $button.Add_Click({
         # Capture the error message
         $errorMessage = "An error occurred: " + $_.Exception.Message
 
-        # Send the error to Sentry
-        $_ | Out-Sentry
+        # If Sentry is available, send the error to Sentry
+        if ($sentryAvailable) {
+            $_ | Out-Sentry
+        } else {
+            Write-Host "Skipping error reporting to Sentry because the Sentry module is not available."
+        }
 
         Write-Error $errorMessage
 

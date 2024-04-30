@@ -109,6 +109,9 @@ $button.Add_Click({
 
         # Docs on this $PSScriptRoot var: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_automatic_variables?view=powershell-7.4#psscriptroot
         & "$PSScriptRoot\HUBpay-createschedtask.ps1" -albacs $albacs -s3bucket $s3bucket -awss3user $awss3user -loglocation $loglocation -sauser $sauser -sapass $sapass -TaskName $TaskName -PASS_VMName $PASS_VMName
+
+        # Display success message box
+        [System.Windows.Forms.MessageBox]::Show("Scheduled task created successfully", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
     } catch {
         # Capture the error message
         $errorMessage = "An error occurred: " + $_.Exception.Message

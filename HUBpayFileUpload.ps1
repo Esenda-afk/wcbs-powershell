@@ -21,7 +21,6 @@ $uploaddate = Get-Date -Format "ddMMyyyy_HHmm"
 
 
 $uploadedpath = "$path\uploaded"
-$archivedpath = "$path\archive"
 $logstore = "C:\HubPay\s3-logs\"
 $logarchive = "$logstore\archive"
 
@@ -34,6 +33,11 @@ if (!(Test-Path "$logstore")) {
 if (!(Test-Path "$logarchive")) {
     
     New-Item -ItemType Directory -Path "$logarchive"
+}
+
+if (!(Test-Path "$uploadedpath")) {
+    
+    New-Item -ItemType Directory -Path "$uploadedpath"
 }
 
 $files = Get-ChildItem -Path $path -Filter $Extension -File -Force | Where-Object {$_.CreationTime -lt $limit}
@@ -52,8 +56,8 @@ foreach ($file in $files){
     echo "This is path variable: $path"
     echo "This is uploaddate variable: $uploaddate"
     echo "This is destination variable: $destination"
-    echo "move-item -path $file -Destination $destination"
-    move-item -path $file -Destination $destination
+    echo "move-item -path $path\$file -Destination $destination"
+    move-item -path "$path\$file" -Destination $destination
 }
 
 Stop-Transcript

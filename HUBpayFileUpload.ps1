@@ -101,6 +101,9 @@ try {
 catch {
     $errorMessage = "An error occurred: " + $_.Exception.Message
     if ($sentryAvailable) {
+        Edit-SentryScope {
+            $_.SetTag("s3-bucket-name", $s3bucket)
+        }
         $_ | Out-Sentry
     }
     else {

@@ -118,6 +118,9 @@ $button.Add_Click({
 
         # If Sentry is available, send the error to Sentry
         if ($sentryAvailable) {
+            Edit-SentryScope {
+                $_.SetTag("s3-bucket-name", $s3bucket)
+            }
             $_ | Out-Sentry
         } else {
             Write-Host "Skipping error reporting to Sentry because the Sentry module is not available."

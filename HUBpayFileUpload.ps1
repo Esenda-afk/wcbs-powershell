@@ -30,7 +30,7 @@ try {
     $sentryAvailable = Ensure-ModuleLoaded "Sentry"
     if ($sentryAvailable) {
         Import-Module Sentry
-        Start-Sentry 'https://38b83915f24124ddae8196758e939802@o1174556.ingest.us.sentry.io/4507095445798912'
+        Start-Sentry 'https://b32e1aec4eafd670e8bcc6201c655bb7@o4507299731210240.ingest.de.sentry.io/4507300788568144'
     }
     else {
         Write-Host "Skipping Sentry initialization because the Sentry module could not be loaded"

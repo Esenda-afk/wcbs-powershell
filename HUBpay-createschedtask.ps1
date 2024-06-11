@@ -13,7 +13,7 @@ param(
 $ScriptPath = "$PSScriptRoot\HUBpayFileUpload.ps1"
 $Value1 = "$albacs"
 $Value2 = "$s3bucket"
-$Arguments = "-File `"$ScriptPath`" -albacs `"$Value1`" -s3bucket `"$Value2`" -awss3user `"$awss3user`" -logpath `"$loglocation`" -PASS_VMName `"$PASS_VMName`""
+$Arguments = "-ExecutionPolicy Bypass -File `"$ScriptPath`" -albacs `"$Value1`" -s3bucket `"$Value2`" -awss3user `"$awss3user`" -logpath `"$loglocation`" -PASS_VMName `"$PASS_VMName`""
 
 # Create a new scheduled task action
 $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $Arguments

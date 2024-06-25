@@ -3,7 +3,8 @@ param(
     [string]$s3bucket, 
     [string]$awss3user, 
     [string]$logpath,
-    [string]$PASS_VMName)
+    [string]$PASS_VMName
+)
 
 function Ensure-ModuleLoaded {
     Param (
@@ -19,9 +20,34 @@ function Ensure-ModuleLoaded {
     }
 }
 
+function Run-Command {
+    param (
+        [string]$Command
+    )
+    $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $processInfo.FileName = "powershell.exe"
+    $processInfo.Arguments = "-Command `"$Command`""
+    $processInfo.RedirectStandardError = $true
+    $processInfo.RedirectStandardOutput = $true
+    $processInfo.UseShellExecute = $false
+    $processInfo.CreateNoWindow = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $processInfo
+
+    $process.Start() | Out-Null
+
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+
+    $process.WaitForExit()
+    $exitCode = $process.ExitCode
+
+    return @{ExitCode = $exitCode; StdOut = $stdout; StdErr = $stderr }
+}
+
 try {
     if (!(Test-Path "$logpath")) {
-
         New-Item -ItemType file -Path "$logpath"
     }
     Start-Transcript -Path "$logpath" -Append
@@ -42,32 +68,41 @@ try {
     $Extension = "*"
     $uploaddate = Get-Date -Format "ddMMyyyy_HHmm"
 
-
     $uploadedpath = "$path\uploaded"
     $logstore = "C:\HubPay\s3-logs\"
     $logarchive = "$logstore\archive"
 
     if (!(Test-Path "$logstore")) {
-    
         New-Item -ItemType Directory -Path "$logstore"
     }
 
-
     if (!(Test-Path "$logarchive")) {
-    
         New-Item -ItemType Directory -Path "$logarchive"
     }
 
     if (!(Test-Path "$uploadedpath")) {
-    
         New-Item -ItemType Directory -Path "$uploadedpath"
     }
 
     $files = Get-ChildItem -Path $path -Filter $Extension -File -Force | Where-Object { $_.CreationTime -lt $limit }
 
     foreach ($file in $files) {
-        echo "aws-vault exec $awss3user -- aws s3 cp $path\$file $s3bucket"
-        aws-vault exec $awss3user -- aws s3 cp $path\$file $s3bucket 
+        $command = "aws-vault exec $awss3user -- aws s3 cp $path\$file $s3bucket"
+        $result = Run-Command -Command $command
+
+        if ($result.ExitCode -ne 0) {
+            $errorMsg = "Failed to upload $file to S3. Error: $($result.StdErr)"
+            Write-Host $errorMsg
+            if ($sentryAvailable) {
+                Edit-SentryScope {
+                    $_.SetTag("s3-bucket-name", $s3bucket)
+                    $_.SetTag("file-name", $file.Name)
+                }
+                $exception = New-Object System.Exception($errorMsg)
+                $exception | Out-Sentry
+            }
+            continue
+        }
 
         $fileName = [System.IO.Path]::GetFileNameWithoutExtension($file)
         $fileExtension = [System.IO.Path]::GetExtension($file)

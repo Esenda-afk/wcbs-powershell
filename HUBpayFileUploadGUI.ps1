@@ -1,5 +1,67 @@
 Add-Type -AssemblyName System.Windows.Forms
+
+try {
+    Stop-Transcript
+} catch {
+    # Ignoring errors if no transcript is running
+}
+
 start-Transcript -path C:\HubPay\guilog.txt
+
+<#
+.SYNOPSIS
+    Checks if a PowerShell module is installed, and installs it if not present.
+
+.DESCRIPTION
+    Installs the inputted PS module if it's not already present. Also imports the module.
+    Returns a boolean to indicate whether the module was successfully loaded or not.
+
+.PARAMETER ModuleName
+    The name of the PowerShell module to check and install.
+
+.EXAMPLE
+    Ensure-ModuleInstalled -ModuleName "Sentry"
+    Checks if the Sentry module is installed, installs it if it is not, and then loads the module.
+#>
+function Ensure-ModuleInstalled {
+    Param (
+        [string]$ModuleName
+    )
+
+    Write-Host "Checking if $ModuleName is installed..."
+    if (-not (Get-Module -ListAvailable -Name $ModuleName)) {
+        try {
+            Write-Host "$ModuleName is not installed. Attempting to install..."
+            Install-Module -Name $ModuleName -Scope CurrentUser -Repository PSGallery -Force -ErrorAction Stop
+            Write-Host "$ModuleName installed successfully."
+        } catch {
+            Write-Host "Failed to install $ModuleName. Error: $_"
+            return $false
+        }
+    } else {
+        Write-Host "$ModuleName is already installed."
+    }
+    
+    try {
+        Import-Module $ModuleName -ErrorAction Stop
+        return $true
+    } catch {
+        Write-Host "Failed to load $ModuleName. Error: $_"
+        return $false
+    }
+}
+
+
+# Initialise Sentry if the module can be installed
+$sentryAvailable = Ensure-ModuleInstalled -ModuleName "Sentry"
+if ($sentryAvailable) {
+    Import-Module Sentry
+    Start-Sentry 'https://b32e1aec4eafd670e8bcc6201c655bb7@o4507299731210240.ingest.de.sentry.io/4507300788568144'
+} else {
+    Write-Host "Skipping Sentry initialization because the Sentry module could not be installed."
+}
+
+
 # Create form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Upload to S3 GUI"
@@ -41,20 +103,34 @@ $button.Location = New-Object System.Drawing.Point $buttonLocationX, $buttonLoca
 $button.Size = New-Object System.Drawing.Size(100, 30)
 $button.Text = "Execute Script"
 $button.Add_Click({
-    $albacs = $textboxes["Albacs"].Text
-    $s3bucket = $textboxes["S3 Bucket"].Text
-    $awss3user = $textboxes["AWS S3 User"].Text
-    $loglocation = $textboxes["Log Location"].Text
-    $sauser = $textboxes["SA User"].Text
-    $sapass = $textboxes["SA Password"].Text
-    $TaskName = $textboxes["Task Name"].Text
-    $PASS_VMName = $textboxes["PASS VM Name"].Text
+    try {
+        # Retrieve values from textboxes and execute the script
+        $albacs, $s3bucket, $awss3user, $loglocation, $sauser, $sapass, $TaskName, $PASS_VMName = $labels.ForEach({ $textboxes[$_].Text })
 
-    # Call the script with the provided parameters
-    & "C:\HubPay\s3-scripts\HUBpay-createschedtask.ps1" -albacs $albacs -s3bucket $s3bucket -awss3user $awss3user -loglocation $loglocation -sauser $sauser -sapass $sapass -TaskName $TaskName -PASS_VMName $PASS_VMName
+        # Docs on this $PSScriptRoot var: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_automatic_variables?view=powershell-7.4#psscriptroot
+        & "$PSScriptRoot\HUBpay-createschedtask.ps1" -albacs $albacs -s3bucket $s3bucket -awss3user $awss3user -loglocation $loglocation -sauser $sauser -sapass $sapass -TaskName $TaskName -PASS_VMName $PASS_VMName
 
-    # Run the create-task.ps1 script
-    Start-Process powershell.exe -ArgumentList "-File '$location\HUBpay-createschedtask.ps1' -albacs '$albacs' -s3bucket '$s3bucket' -awss3user '$awss3user' -loglocation '$loglocation' -sauser '$sauser' -sapass '$sapass' -TaskName '$TaskName' -PASS_VMName '$PASS_VMName'"
+        # Display success message box
+        [System.Windows.Forms.MessageBox]::Show("Scheduled task created successfully", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    } catch {
+        # Capture the error message
+        $errorMessage = "An error occurred: " + $_.Exception.Message
+
+        # If Sentry is available, send the error to Sentry
+        if ($sentryAvailable) {
+            Edit-SentryScope {
+                $_.SetTag("s3-bucket-name", $s3bucket)
+            }
+            $_ | Out-Sentry
+        } else {
+            Write-Host "Skipping error reporting to Sentry because the Sentry module is not available."
+        }
+
+        Write-Error $errorMessage
+
+        # Display the error message in a dialog box
+        [System.Windows.Forms.MessageBox]::Show($errorMessage)
+    }
 })
 
 $form.Controls.Add($button)

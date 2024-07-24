@@ -1,3 +1,4 @@
+# Script version: 24/07/2024
 param(
     [string]$albacs, 
     [string]$s3bucket, 
@@ -26,7 +27,7 @@ function Run-Command {
     )
     $processInfo = New-Object System.Diagnostics.ProcessStartInfo
     $processInfo.FileName = "powershell.exe"
-    $processInfo.Arguments = "-Command `"$Command`""
+    $processInfo.Arguments = "-Command `"& { $Command }`""
     $processInfo.RedirectStandardError = $true
     $processInfo.RedirectStandardOutput = $true
     $processInfo.UseShellExecute = $false
@@ -87,7 +88,8 @@ try {
     $files = Get-ChildItem -Path $path -Filter $Extension -File -Force | Where-Object { $_.CreationTime -lt $limit }
 
     foreach ($file in $files) {
-        $command = "aws-vault exec $awss3user -- aws s3 cp $path\$file $s3bucket"
+        $quotedPath = "`"$path\$file`""
+        $command = "aws-vault exec $awss3user -- aws s3 cp $quotedPath $s3bucket"
         $result = Run-Command -Command $command
 
         if ($result.ExitCode -ne 0) {

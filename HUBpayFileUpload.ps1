@@ -87,7 +87,16 @@ try {
     $files = Get-ChildItem -Path $path -Filter $Extension -File -Force | Where-Object { $_.CreationTime -lt $limit }
 
     foreach ($file in $files) {
-        $command = "aws-vault exec $awss3user -- aws s3 cp $path\$file $s3bucket"
+        $fullFilePath = Join-Path -Path $path -ChildPath $file.Name
+        <# 
+        Spaces and brackets in the path "\\wcsPASS\c$\Program Files (x86)\WCBS\Pass for Windows\Documents\Albacs" were causing issues,
+        so we need to prefix them with the escape character in powershell (which is `). I tried more elegant approaches than a simple character replacement,
+        I assumed there would be some built in library or way for Powershell to properly escape strings. I wasn't able to get any other solution working that
+        could both properly handle the spaces and brackets in the file path, as well as actually execute the command with the proper file paths instead of just variable names.
+        #>
+        $escapedFullFilePath = $fullFilePath -replace ' ', '` ' -replace '\(', '`(' -replace '\)', '`)'
+        $command = "aws-vault exec $awss3user -- aws s3 cp `"$escapedFullFilePath`" `"$s3bucket`""
+        echo "Command is: $command"
         $result = Run-Command -Command $command
 
         if ($result.ExitCode -ne 0) {
